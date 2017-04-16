@@ -33,8 +33,10 @@ public class Util {
 				singleEvent.put("homeConfirmed", rs.getInt(12));
 				singleEvent.put("showLat", rs.getFloat(13));
 				singleEvent.put("showLng", rs.getFloat(14));
-				if (rs.getString(15) != null) {
-					singleEvent.put("homeName", rs.getString(15));
+				singleEvent.put("showPhoto", rs.getString(15));
+				if (rs.getMetaData().getColumnCount() > 15 && rs.getString(16) != null) {
+					singleEvent.put("homeName", rs.getString(16));
+					singleEvent.put("bandID", rs.getString(17));
 				}
 				allEvents.put(singleEvent);
 				} while (rs.next());
@@ -107,6 +109,11 @@ public class Util {
 				singleBand.put("bandID", rs.getInt(1));
 				singleBand.put("bandName", rs.getString(2));
 				singleBand.put("bandPhoto", rs.getString(3));
+				if(rs.getMetaData().getColumnCount() > 4) {
+					singleBand.put("bandMemberCount", rs.getInt(4));
+					singleBand.put("bandOffer", rs.getString(5));
+					singleBand.put("homeConfirmed", rs.getInt(6));
+				}
 				System.out.println("Building bands.... " + singleBand.toString());
 				allBands.put(singleBand);
 				} while (rs.next());

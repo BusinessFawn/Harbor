@@ -214,11 +214,28 @@ public class DBConnection {
 		}
 		return"failure....";
 	}
-	public String getEventByID(int tourID) {
+	public String getShowByID(int showID) {
 		try {
-			ResultSet rs = stmt.executeQuery("SELECT * FROM tour_show where tour_id = '" + String.valueOf(tourID) + "';");
+			ResultSet rs = stmt.executeQuery("SELECT * FROM tour_show where show_id = '" + String.valueOf(showID) + "';");
 			if (rs.first()) {
 				String eventList = Util.makeShowList(rs);
+					conn.close();
+					return eventList;
+			} else {
+				System.out.println("didn't get anything back...");
+			}
+		} catch (SQLException ex) {
+			System.out.println(ex.getMessage());
+		}
+		
+		return "failure.....";
+	}
+	
+	public String getBandByID(int bandID) {
+		try {
+			ResultSet rs = stmt.executeQuery("SELECT * FROM band where band_id = '" + String.valueOf(bandID) + "';");
+			if (rs.first()) {
+				String eventList = Util.makeBandList(rs);
 					conn.close();
 					return eventList;
 			} else {
@@ -318,32 +335,19 @@ public class DBConnection {
 public String showsInTownWithoutHome(String fanEmail, String fanPassword) {
 		
 		try {
-			ResultSet rs = stmt.executeQuery("call showsInTownWithoutHome('" + fanEmail + "','" + fanPassword + "');");
+			System.out.println("SELECT ts.*, MAX(home_name), band_id from fan as f join fan_home as fh "
+					+ "on f.fan_id = fh.fan_id join tour_show as ts on fh.home_city = ts.show_city "
+					+ "join show_to_band s2b on ts.show_id = s2b.show_id "
+					+ "where fan_email = '" + fanEmail + "' and fan_pass = '" + fanPassword +"' "
+					+ "and s2b.home_confirmed < 2 and show_date > CURRENT_DATE order by home_name;");
+			ResultSet rs = stmt.executeQuery("SELECT ts.*, MAX(home_name), band_id from fan as f join fan_home as fh "
+					+ "on f.fan_id = fh.fan_id join tour_show as ts on fh.home_city = ts.show_city "
+					+ "join show_to_band s2b on ts.show_id = s2b.show_id "
+					+ "where fan_email = '" + fanEmail + "' and fan_pass = '" + fanPassword +"' "
+					+ "and s2b.home_confirmed < 2 and show_date > CURRENT_DATE order by home_name;");
 			String showsInTown = Util.makeShowList(rs);
-//			try {
-//			JSONObject userHomes = new JSONObject(getFanHomes(fanEmail,fanPassword));
-//			System.out.println(userHomes.toString());
-//			JSONArray homes = userHomes.optJSONArray("homes");
-//			JSONObject allShows = new JSONObject();
-//			JSONArray showsCloseToHomes = new JSONArray();
-//			for (int i = 0; i < homes.length(); i++) {
-//				JSONObject singleHome = homes.optJSONObject(i);
-//				DBConnection newConn = new DBConnection();
-//				System.out.println(singleHome.optString("homeCity"));
-//				JSONObject inTownShows = new JSONObject(
-//						newConn.showsInTownWithoutConfirmation(
-//								singleHome.optString("homeCity")));
-//				inTownShows.put("homeName",singleHome.opt("homeName"));
-//				showsCloseToHomes.put(inTownShows);
-//			}
-//			allShows.put("shows", showsCloseToHomes);
-//			String showsInTown = allShows.toString();
 			conn.close();
 			return showsInTown;
-			
-//			} catch (JSONException e) {
-//				System.out.println(e.getMessage());
-//			}
 		} catch (SQLException e) {
 			System.out.println("SQL Error... " + e.getMessage());
 		}
@@ -478,6 +482,55 @@ public String fanToBandByGenre(String fanEmail, String fanPassword) {
 		
 		return "failure...";
 	}
+public String getBandByShowID(int showID) {
+	try {
+		ResultSet rs = stmt.executeQuery("SELECT band.*, member_count, offer, home_confirmed FROM show_to_band as s2b join "
+				+ "band on s2b.band_id = band.band_id "
+				+ "where show_id = '" + showID + "';");
+		System.out.println("Success!!!");
+		System.out.println("This hapened");
+		String genreList = Util.makeBandList(rs);
+		conn.close();
+		return genreList;
+	} catch (SQLException e) {
+		System.out.println("SQL Error... " + e.getMessage());
+	}
+	
+	
+	return "failure....";
+}
+	public String offerHomeConfirmation(String fanEmail, String fanPassword, int homeID, int bandID, int showID) {
+		
+		
+		try {
+			ResultSet rs = stmt.executeQuery("SELECT fan_id FROM fan where fan_email = '" + fanEmail + "' and fan_pass = '" + fanPassword + "'");
+			
+			System.out.println("trying for fan...");
+			System.out.println(fanEmail + " " + fanPassword);
+			if(rs != null && rs.first()) {
+				int fanID = rs.getInt(1);
+				rs = stmt.executeQuery("SELECT COUNT(*) FROM fan_home where fan_id = " + fanID + " and home_id = " + homeID + ";");
+				if(rs.first() && rs.getInt(1) > 0) {
+					System.out.println("how many columns?? " + rs.getMetaData().getColumnCount());
+					System.out.println("INSERT INTO bandmate_to_home (home_id, band_id, show_id) values(" + homeID + ", " + bandID + ", " + showID + ");");
+					stmt.execute("INSERT INTO bandmate_to_home (home_id, band_id, show_id) values(" + homeID + ", " + bandID + ", " + showID + ");");
+					System.out.println("finished insert??");
+					System.out.println("UPDATE tour_show set home_confirmed = 1 where show_id = " + showID + ";");
+					stmt.execute("UPDATE tour_show set home_confirmed = 1 where show_id = " + showID + ";");
+					stmt.execute("UPDATE show_to_band set home_confirmed = 1 where band_id = " + bandID + " and _id = " + showID + ";");
+					conn.close();
+					System.out.println("closed my connnn");
+					return "success!";
+				}
+			}
+		} catch (SQLException e) {
+			System.out.println("SQL Error... " + e.getMessage());
+		}
+		
+		
+		
+		return "failure...";
+	}
 
 	public String addBand(String name, String genre) {
 		try {
@@ -572,5 +625,6 @@ public String fanToBandByGenre(String fanEmail, String fanPassword) {
 		
 		return "failure....";
 	}
+
 	
 }
