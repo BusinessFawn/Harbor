@@ -25,13 +25,13 @@ public class DBConnection {
 		
 		dataSource.setUser("businessFawn");
 		dataSource.setPassword("D#Wg0ng");
-		dataSource.setServerName("192.168.1.89");
+		//dataSource.setServerName("192.168.1.89");
 		System.out.println("THISSSSS");
 		
 		
 //		dataSource.setUser(userName);
 //		dataSource.setPassword(password);
-//		dataSource.setServerName("127.0.0.1");
+		dataSource.setServerName("127.0.0.1");
 		dataSource.setPort(3306);
 		dataSource.setDatabaseName("harbor");
 
@@ -192,9 +192,15 @@ public class DBConnection {
 	public String getLogin(String userName, String password) {
 		
 		try {
-			ResultSet rs = stmt.executeQuery("CALL getLogin('" + userName + "', '" + password + "');");
-			System.out.println("CALL getLogin('" + userName + "', '" + password + "');");
-			System.out.println("Looking for a fan....");
+			
+			System.out.println(("SELECT f.*, b.band_id, band_name from fan as f "
+					+ "join bandmate as bm on f.fan_id = bm.fan_id "
+					+ "join band as b on bm.band_id = b.band_id "
+					+ "where fan_email = '" + userName + "' and fan_pass = '" + password + "';"));
+			ResultSet rs = stmt.executeQuery("SELECT f.*, b.band_id, band_name from fan as f "
+					+ "join bandmate as bm on f.fan_id = bm.fan_id "
+					+ "join band as b on bm.band_id = b.band_id "
+					+ "where fan_email = '" + userName + "' and fan_pass = '" + password + "';");
 			if(rs.first()) {
 				System.out.println("Got a fan!!!");
 				JSONObject fullOb = new JSONObject();
@@ -203,6 +209,10 @@ public class DBConnection {
 					fullOb.put("fanName", rs.getString(2));
 					fullOb.put("fanEmail", rs.getString(3));
 					fullOb.put("fanAchievement", rs.getString(4));
+					if(rs.getMetaData().getColumnCount() > 7) {
+						fullOb.put("bandID", rs.getInt(7));
+						fullOb.put("bandName", rs.getString(8));
+					}
 					
 					return fullOb.toString();
 				} catch(JSONException e) {
@@ -386,6 +396,44 @@ public String showsInTownWithoutHome(String fanEmail, String fanPassword) {
 		return "failure....";
 	}
 	
+public String getOffers(String fanEmail, String fanPassword, int homeConfirmed) {
+		
+		int fanID = -1;
+		int bandID = -1;
+		
+		try {
+			try {
+			JSONObject userOb = new JSONObject(getLogin(fanEmail,fanPassword));
+			
+			
+			fanID = userOb.optInt("fanID");
+			
+			ResultSet rs = stmt.executeQuery("SELECT fh.* FROM bandmate as bm "
+					+ "join show_to_band as s2b on bm.band_id = s2b.band_id "
+					+ "join bandmate_to_home as b2h on bm.band_id "
+					+ "join fan_home as fh on b2h.home_id = fh.home_id "
+					+ "where fh.fan_id = '" + fanID + "'"
+					+ "and s2b.home_confirmed = " + homeConfirmed + ";");
+			System.out.println("Success!!!");
+			System.out.println("This hapened");
+			if(rs.first()) {
+				String result = Util.makeHome(rs);
+				conn.close();
+				return result;
+			}
+			
+			
+			} catch (JSONException e) {
+				System.out.println(e.getMessage());
+			}
+		} catch (SQLException e) {
+			System.out.println("SQL Error... " + e.getMessage());
+		}
+		
+		
+		return "failure....";
+	}
+	
 	public String getFanGenres(String fanEmail, String fanPassword) {
 int fanID = -1;
 		
@@ -532,10 +580,29 @@ public String getBandByShowID(int showID) {
 		return "failure...";
 	}
 
-	public String addBand(String name, String genre) {
+	public String addBand(String userName, String password, String bandName, String bandPhoto) {
+		int bandID = -1;
+		int fanID = -1;
 		try {
-			stmt.execute("INSERT INTO band (band_name,band_genre) values('" + name + "','" + genre + "');");
-			return "Success!";
+			stmt.execute("INSERT INTO band (band_name, band_photo) values('" + bandName + "','" + bandPhoto + "');");
+			System.out.println("Inserted into band....");
+				ResultSet rs = stmt.executeQuery("SELECT band_id FROM band ORDER BY band_id DESC LIMIT 1;");
+				if(rs.first()) {
+					bandID = rs.getInt(1);
+					System.out.println("bandID: " + bandID);
+					rs = stmt.executeQuery("SELECT fan_id from fan where fan_email = '" + userName + "' and fan_pass = '"
+							+ password + "' ORDER BY fan_id DESC LIMIT 1;");
+					if(rs.first()) {
+						fanID = rs.getInt(1);
+						System.out.println("fanID: " + fanID);
+						stmt.execute("INSERT INTO bandmate VALUES(" + bandID + "," + fanID + ");");
+							return "Success!";
+					} else {
+						stmt.execute("DELETE FROM band where band_id = " + bandID);
+						System.out.println("Deleted my band...");
+					}
+				}
+				
 		} catch (SQLException ex) {
 			System.out.println(ex.getMessage());
 		}

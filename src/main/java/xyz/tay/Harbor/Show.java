@@ -45,6 +45,9 @@ public class Show {
 		DBConnection conn = new DBConnection();
 		return conn.offerHomeConfirmation(userName, password, homeID, bandID, showID);
 	}
+//	@POST @Path("/acceptHome")
+//	@Produces(MediaType.TEXT_PLAIN)
+//	public String acceptHome(@QueryParam)
 
 
 
